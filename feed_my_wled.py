@@ -122,7 +122,7 @@ def stream_audio_to_wled():
             combined_data = b"".join(ring_buffer)
 
             # Calc FFT and Peaks with buffersize
-            fft_result = calculate_fft(combined_data[:chunk_size])
+            fft_result = calculate_fft(combined_data[:chunk_size], sample_rate)
             if fft_result[0] is None:
                 print("Unvalid FFT-Datas, skip actual block.")
                 continue
