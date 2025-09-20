@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
-import configparser
+import configparser, os
 import socket
 import struct
 import numpy as np
@@ -9,7 +9,7 @@ from collections import deque
 
 # load preferences file
 config = configparser.ConfigParser()
-config.read("feed_my_wled.conf")
+config.read(["feed_my_wled.conf", "/etc/feed_my_wled.conf", os.path.expanduser("~/.feed_my_wled.conf")])
 
 #load preferences
 WLED_IP_ADDRESS = config.get("WLED", "WLED_IP_ADDRESS")
