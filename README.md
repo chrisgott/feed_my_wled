@@ -73,8 +73,18 @@ I recommend using Homebrew for all installations.
 
 ## Setup (on Linux)
 
-# `pactl load-module module-pipe-sink sink_name=wled file=/tmp/wled format=s16le rate=44100 channels=1`
-# `cat /tmp/wled | ./feed_my_wled.py`
+`# pactl load-module module-pipe-sink sink_name=wled file=/tmp/wled format=s16le rate=44100 channels=1`
+`# cat /tmp/wled | ./feed_my_wled.py`
+
+### or alternatively
+
+`# make install`
+
+Copy `/etc/feed_my_wled.conf.example` to `/etc/feed_my_wled.conf` or `~/.feed_my_wled.conf`.
+
+`$ systemctl --user enable --now feed-my-wled`
+
+See `/etc/pipewire/pipewire.conf.d/90-fft-output.conf.example` for how to create a combine sink that will always output to the wled fft sink as well as your audio sink.
 
 ### About Me
 This is my first project on GitHub and also my first "real" project written in Python, a language I’ve never used before. So, if you see something weird or unusual, please have mercy and let me know how I can improve. Regards, Chris

@@ -1,0 +1,38 @@
+# /etc/pipewire/pipewire.conf.d/
+context.modules = [
+{   name = libpipewire-module-combine-stream
+    args = {
+        combine.mode = sink
+        node.name = "fftOut"
+        node.description = "fft"
+        combine.latency-compensate = false
+        combine.props = {
+            audio.position = [ FL FR ]
+            #audio.position = [ FL FR RL RR FC LFE ]
+        }
+        stream.props = {
+        }
+        stream.rules = [
+            {
+                matches = [
+                    {
+                        # pactl list sinks short
+                        node.name = "your-sink"
+                        media.class = "Audio/Sink"
+                    }
+                    {
+                        node.name = "wled"
+                        media.class = "Audio/Sink"
+                    }
+                ]
+                actions = {
+                    create-stream = {
+                        combine.audio.position = [ FL FR ]
+                        #audio.position = [ FL FR RL RR FC LFE ]
+                    }
+                }
+            }
+        ]
+    }
+}
+]

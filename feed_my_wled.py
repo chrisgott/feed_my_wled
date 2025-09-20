@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import sys
-import configparser
+import configparser, os
 import socket
 import struct
 import numpy as np
@@ -9,7 +9,7 @@ from collections import deque
 
 # load preferences file
 config = configparser.ConfigParser()
-config.read("feed_my_wled.conf")
+config.read(["feed_my_wled.conf", "/etc/feed_my_wled.conf", os.path.expanduser("~/.feed_my_wled.conf")])
 
 #load preferences
 WLED_IP_ADDRESS = config.get("WLED", "WLED_IP_ADDRESS")
@@ -122,7 +122,7 @@ def stream_audio_to_wled():
             combined_data = b"".join(ring_buffer)
 
             # Calc FFT and Peaks with buffersize
-            fft_result = calculate_fft(combined_data[:chunk_size])
+            fft_result = calculate_fft(combined_data[:chunk_size], sample_rate)
             if fft_result[0] is None:
                 print("Unvalid FFT-Datas, skip actual block.")
                 continue

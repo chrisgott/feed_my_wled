@@ -1,0 +1,14 @@
+# /usr/lib/systemd/user/
+[Unit]
+Description=Feed WLED over the air using its audio-reactive feature
+Wants=pipewire.service pipewire-pulse.service
+After=pipewire.service pipewire-pulse.service
+
+[Service]
+Type=simple
+ExecStart=/bin/sh -c '/usr/bin/feed_my_wled.py < /tmp/wled'
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

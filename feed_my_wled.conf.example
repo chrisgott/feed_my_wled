@@ -1,0 +1,16 @@
+[WLED]
+# The IP address of the WLED device
+WLED_IP_ADDRESS = 224.0.0.1
+
+# The UDP port for the connection (default: 11988)
+WLED_UDP_PORT = 11988
+
+[Audio]
+# The sample rate of the audio stream (default for Shairport is 88200)
+sample_rate = 44100
+
+# Size of the buffer in bytes (increase to add more delay)
+buffer_size = 163840
+
+# Size of the data chunks in bytes (increase to reduce bandwidth usage)
+chunk_size = 8192
