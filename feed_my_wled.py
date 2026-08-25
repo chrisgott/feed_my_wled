@@ -17,6 +17,8 @@ WLED_UDP_PORT = config.getint("WLED", "WLED_UDP_PORT")
 sample_rate = config.getint("Audio", "sample_rate")
 buffer_size = config.getint("Audio", "buffer_size")
 chunk_size = config.getint("Audio", "chunk_size")
+min_frequency = config.getint("Audio", "min_frequency", fallback=20)
+max_frequency = config.getint("Audio", "max_frequency", fallback=10000)
 
 # def vars
 previous_smoothed_level = 0.0
@@ -27,7 +29,7 @@ udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 ## functions
 # calculating fft
-def calculate_fft(audio_chunk, sample_rate):
+def calculate_fft(audio_chunk, sample_rate, min_freq, max_freq):
     """
     Calc FFT for a Audioblock
     :param audio_chunk: Audiodata as Byte-Array.
@@ -48,8 +50,28 @@ def calculate_fft(audio_chunk, sample_rate):
         # Normalize from 0 to 255
         fft_normalized = np.interp(fft_result, (0, np.max(fft_result)), (0, 255))
 
-        # Select first 16 frequency bands
-        fft_values = fft_normalized[:16].astype(np.uint8)
+        # Calculate the 16 frequency bands logarithmically between min_freq and max_freq
+        num_bins = len(fft_result)
+        freq_resolution = (sample_rate / 2) / (num_bins - 1)
+        
+        min_bin = max(1, int(min_freq / freq_resolution)) # Ignore DC offset (bin 0)
+        max_bin = min(num_bins - 1, int(max_freq / freq_resolution))
+        if max_bin <= min_bin: max_bin = min_bin + 16
+        
+        band_edges = np.logspace(np.log10(min_bin), np.log10(max_bin), num=17)
+        
+        fft_values = []
+        for i in range(16):
+            start_bin = int(band_edges[i])
+            end_bin = int(band_edges[i+1])
+            if end_bin <= start_bin:
+                end_bin = start_bin + 1
+            
+            # Take the max amplitude in this frequency band
+            band_val = np.max(fft_normalized[start_bin:end_bin])
+            fft_values.append(band_val)
+            
+        fft_values = np.array(fft_values, dtype=np.uint8)
 
         # Find dominating frequency
         freq_index = np.argmax(fft_result)
@@ -64,7 +86,7 @@ def calculate_fft(audio_chunk, sample_rate):
         #error handling
     except Exception as e:
         print(f"Error at calcing FFT: {e}")
-        return None, 0, 0, 0, 0, 0
+        return None, 0, 0, 0, 0
 
 # function for creating the udp package
 def create_udp_packet(fft_values, raw_level, smoothed_level, peak_level, fft_magnitude_sum, fft_peak_frequency):
@@ -115,14 +137,15 @@ def stream_audio_to_wled():
         while True:
             # read datas from pipe
             audio_data = sys.stdin.buffer.read(chunk_size)
-            if audio_data:
-                ring_buffer.append(audio_data)  # push data to buffer
+            if not audio_data:
+                break
+            ring_buffer.append(audio_data)  # push data to buffer
 
-            # combine blocks for prozessing
-            combined_data = b"".join(ring_buffer)
+            # Grab the oldest chunk from the buffer for processing (delay)
+            delayed_chunk = ring_buffer[0]
 
-            # Calc FFT and Peaks with buffersize
-            fft_result = calculate_fft(combined_data[:chunk_size])
+            # Calc FFT and Peaks for the delayed chunk
+            fft_result = calculate_fft(delayed_chunk, sample_rate, min_frequency, max_frequency)
             if fft_result[0] is None:
                 print("Unvalid FFT-Datas, skip actual block.")
                 continue
