@@ -29,6 +29,12 @@ WLED_UDP_PORT = config.getint("WLED", "WLED_UDP_PORT")
 sample_rate = config.getint("Audio", "sample_rate")
 buffer_size = config.getint("Audio", "buffer_size")
 chunk_size = config.getint("Audio", "chunk_size")
+min_frequency = config.getint("Audio", "min_frequency", fallback=20)
+max_frequency = config.getint("Audio", "max_frequency", fallback=10000)
+agc_enabled = config.getboolean("Audio", "agc_enabled", fallback=True)
+agc_decay = config.getfloat("Audio", "agc_decay", fallback=0.90)
+agc_noise_floor = config.getfloat("Audio", "agc_noise_floor", fallback=100000.0)
+agc_fixed_max = config.getfloat("Audio", "agc_fixed_max", fallback=5000000.0)
 
 # Second-stage parser: full CLI, including the audio source selection.
 # This reuses -c/--config_file (already consumed above) plus new options
@@ -79,13 +85,14 @@ udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 ## functions
 
 # calculating fft
-def calculate_fft(audio_chunk, sample_rate):
+def calculate_fft(audio_chunk, sample_rate, min_freq, max_freq):
     """
     Calc FFT for a Audioblock
     :param audio_chunk: Audiodata as Byte-Array.
     :param sample_rate: Samplerate of Audiodata.
     :return: Tuple (FFT-Ergebnisse for 16 Frequency bands, additional peaks).
     """
+    global previous_max_fft
     try:
         # Convert to a numpy-Array
         audio_data = np.frombuffer(audio_chunk, dtype=np.int16)
@@ -97,11 +104,46 @@ def calculate_fft(audio_chunk, sample_rate):
         # Calc FFT and Amplitudes
         fft_result = np.abs(np.fft.rfft(audio_data))
 
-        # Normalize from 0 to 255
-        fft_normalized = np.interp(fft_result, (0, np.max(fft_result)), (0, 255))
+        # Automatic Gain Control (AGC) with temporal smoothing
+        max_fft = np.max(fft_result)
+        
+        if agc_enabled:
+            # Fast attack, slow decay for auto-gain
+            if max_fft > previous_max_fft:
+                previous_max_fft = max_fft
+            else:
+                previous_max_fft = (previous_max_fft * agc_decay) + (max_fft * (1.0 - agc_decay))
+            current_scale_max = previous_max_fft
+        else:
+            current_scale_max = agc_fixed_max
+            
+        if current_scale_max < agc_noise_floor:
+            current_scale_max = agc_noise_floor
+            
+        fft_normalized = np.interp(fft_result, (0, current_scale_max), (0, 255))
 
-        # Select first 16 frequency bands
-        fft_values = fft_normalized[:16].astype(np.uint8)
+        # Calculate the 16 frequency bands logarithmically between min_freq and max_freq
+        num_bins = len(fft_result)
+        freq_resolution = (sample_rate / 2) / (num_bins - 1)
+        
+        min_bin = max(1, int(min_freq / freq_resolution)) # Ignore DC offset (bin 0)
+        max_bin = min(num_bins - 1, int(max_freq / freq_resolution))
+        if max_bin <= min_bin: max_bin = min_bin + 16
+        
+        band_edges = np.logspace(np.log10(min_bin), np.log10(max_bin), num=17)
+        
+        fft_values = []
+        for i in range(16):
+            start_bin = int(band_edges[i])
+            end_bin = int(band_edges[i+1])
+            if end_bin <= start_bin:
+                end_bin = start_bin + 1
+            
+            # Take the max amplitude in this frequency band
+            band_val = np.max(fft_normalized[start_bin:end_bin])
+            fft_values.append(band_val)
+            
+        fft_values = np.array(fft_values, dtype=np.uint8)
 
         # Find dominating frequency
         freq_index = np.argmax(fft_result)
@@ -116,7 +158,7 @@ def calculate_fft(audio_chunk, sample_rate):
     #error handling
     except Exception as e:
         print(f"Error at calcing FFT: {e}")
-        return None, 0, 0, 0, 0, 0
+        return None, 0, 0, 0, 0
 
 # function for creating the udp package
 def create_udp_packet(fft_values, raw_level, smoothed_level, peak_level, fft_magnitude_sum, fft_peak_frequency):
