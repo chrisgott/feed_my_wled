@@ -1,0 +1,22 @@
+[Unit]
+Description=Feed WLED Audio Channel 1
+After=sound.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=audio
+WorkingDirectory=/opt/feed_my_wled
+
+#ExecStart=/bin/bash -c 'arecord -D default:CARD=Device -c 1 -r 48000 -f S16_LE | ./feed_my_wled.py -c feed_my_wled-ch1.conf'
+ExecStart=/opt/feed_my_wled/feed_my_wled.py -D default:CARD=Device -s mic -c /opt/feed_my_wled/feed_my_wled-ch1.conf
+
+Restart=always
+RestartSec=2
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

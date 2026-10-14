@@ -73,8 +73,32 @@ I recommend using Homebrew for all installations.
 
 ## Setup (on Linux)
 
-# `pactl load-module module-pipe-sink sink_name=wled file=/tmp/wled format=s16le rate=44100 channels=1`
-# `cat /tmp/wled | ./feed_my_wled.py`
+ `pactl load-module module-pipe-sink sink_name=wled file=/tmp/wled format=s16le rate=44100 channels=1`
+
+ `cat /tmp/wled | ./feed_my_wled.py`
+
+## Setup for Raspberry Pi 
+
+The below examples uses a USB Audio Input from Alsa Record on a Raspberry Pi 5 for input:
+
+```
+arecord -D hw:2,0 -c 1 -r 48000 -f S16_LE | ./feed_my_wled.py
+arecord -D default:CARD=Device -c 1 -r 48000 -f S16_LE | ./feed_my_wled.py -c feed_my_wled-ch1.conf
+arecord -D default:CARD=Device_1 -c 1 -r 48000 -f S16_LE | ./feed_my_wled.py -c feed_my_wled-ch2.conf
+arecord -D default:CARD=Device_2 -c 1 -r 48000 -f S16_LE | ./feed_my_wled.py -c feed_my_wled-ch3.conf
+```
+
+Or from the command line tell it the driver and config file: 
+```
+feed_my_wled.py -D default:CARD=Device -s mic -c /opt/feed_my_wled/feed_my_wled-ch1.conf`
+```
+
+## Linux Requirements:
+`sudo apt install libasound2-dev`
+and
+`sudo apt install python3-alsaaudio`
+or
+`pip install pyalsaaudio`
 
 ### About Me
 This is my first project on GitHub and also my first "real" project written in Python, a language I’ve never used before. So, if you see something weird or unusual, please have mercy and let me know how I can improve. Regards, Chris
